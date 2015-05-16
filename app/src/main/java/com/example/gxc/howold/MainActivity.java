@@ -28,16 +28,40 @@ import org.json.JSONObject;
 public class MainActivity extends ActionBarActivity implements View.OnClickListener {
 
     private static final int PICK_CODE = 0X110;
+    private static final int MSG_SUCCESS = 0x111;
+    private static final int MSG_ERROR = 0x112;
     private ImageView mPhoto;
     private Button mGetImage;
     private Button mDetect;
     private TextView mTip;
     private View mWating;
-
     private Bitmap mPhotoImage;
     private String mCurrentPhotoStr;
-    private  Paint mPaint;
+    private Paint mPaint;
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_SUCCESS:
+                    mWating.setVisibility(View.GONE);
+                    JSONObject rs = (JSONObject) msg.obj;
+                    prepareRsBitmap(rs);
+                    mPhoto.setImageBitmap(mPhotoImage);
 
+                    break;
+                case MSG_ERROR:
+                    mWating.setVisibility(View.GONE);
+                    String errorMsg = (String) msg.obj;
+                    if (TextUtils.isEmpty(errorMsg)) {
+                        mTip.setText("Error");
+                    } else {
+                        mTip.setText(errorMsg);
+                    }
+                    break;
+            }
+            super.handleMessage(msg);
+        }
+    };
 
 
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,7 +80,6 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     }
 
-
     private void initViews() {
         mPhoto = (ImageView) findViewById(R.id.id_photo);
         mGetImage = (Button) findViewById(R.id.id_getImage);
@@ -64,78 +87,86 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         mTip = (TextView) findViewById(R.id.id_tip);
     }
 
-    private static final int MSG_SUCCESS = 0x111;
-    private static final int MSG_ERROR = 0x112;
-
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_SUCCESS:
-                    mWating.setVisibility(View.GONE);
-                    JSONObject rs = (JSONObject) msg.obj;
-                    prepareRsBitmap(rs);
-                    mPhoto.setImageBitmap(mPhotoImage);
-
-                    break;
-                case MSG_ERROR:
-                    mWating.setVisibility(View.GONE);
-                    String errorMsg = (String) msg.obj;
-                    if(TextUtils.isEmpty(errorMsg))
-                    {
-                        mTip.setText("Error");
-                    }else{
-                        mTip.setText(errorMsg);
-                    }
-                    break;
-            }
-            super.handleMessage(msg);
-        }
-    };
-
     private void prepareRsBitmap(JSONObject rs) {
 
         Bitmap bitmap = Bitmap.createBitmap(mPhotoImage.getWidth(), mPhotoImage.getHeight(), mPhotoImage.getConfig());
         Canvas canvas = new Canvas(bitmap);
+        canvas.drawBitmap(mPhotoImage, 0, 0, null);
 
 
         try {
-            JSONArray  faces =  rs.getJSONArray("face");
+            JSONArray faces = rs.getJSONArray("face");
             int faceCount = faces.length();
             mTip.setText("find" + faceCount);
-            for(int i=0; i<faceCount; i++){
+            for (int i = 0; i < faceCount; i++) {
                 //拿到单独的face对象
                 JSONObject face = faces.getJSONObject(i);
                 JSONObject posObj = face.getJSONObject("");
 
-                float  x = (float) posObj.getJSONObject("center").getDouble("x");
-                float  y = (float) posObj.getJSONObject("center").getDouble("y");
+                float x = (float) posObj.getJSONObject("center").getDouble("x");
+                float y = (float) posObj.getJSONObject("center").getDouble("y");
 
-                float  w = (float) posObj.getDouble("width");
-                float  h = (float) posObj.getDouble("height");
+                float w = (float) posObj.getDouble("width");
+                float h = (float) posObj.getDouble("height");
 
-                x = x /100 * bitmap.getWidth();
-                y = y /100 * bitmap.getHeight();
+                x = x / 100 * bitmap.getWidth();
+                y = y / 100 * bitmap.getHeight();
 
-                w = w/ 100 * bitmap.getWidth();
-                h = h/ 100 * bitmap.getHeight();
+                w = w / 100 * bitmap.getWidth();
+                h = h / 100 * bitmap.getHeight();
 
                 mPaint.setColor(0xffffffff);
                 mPaint.setStrokeWidth(3);
 
                 //画box
-                canvas.drawLine(x - w/2, y - h / 2, x - w/2, y + h /2, mPaint);
-                canvas.drawLine(x - w/2, y - h / 2, x + w/2, y - h /2, mPaint);
-                canvas.drawLine(x + w/2, y - h / 2, x + w/2, y + h /2, mPaint);
-                canvas.drawLine(x - w/2, y + h / 2, x + w/2, y + h /2, mPaint);
+                canvas.drawLine(x - w / 2, y - h / 2, x - w / 2, y + h / 2, mPaint);
+                canvas.drawLine(x - w / 2, y - h / 2, x + w / 2, y - h / 2, mPaint);
+                canvas.drawLine(x + w / 2, y - h / 2, x + w / 2, y + h / 2, mPaint);
+                canvas.drawLine(x - w / 2, y + h / 2, x + w / 2, y + h / 2, mPaint);
 
+                int age = face.getJSONObject("attribute").getJSONObject("age").getInt("value");
+                String gender = face.getJSONObject("attribute").getJSONObject("gender").getString("value");
 
+                Bitmap ageBitmap = buildAgeBitmap(age, "Male".equals(gender));
+
+                int ageWidth = ageBitmap.getWidth();
+                int ageHeight = ageBitmap.getHeight();
+
+                if(bitmap.getWidth() < mPhoto.getWidth() && bitmap.getHeight() < mPhoto.getHeight())
+                {
+                    float ratio = Math.max(bitmap.getWidth()*1.0f /mPhoto.getWidth(), bitmap.getHeight() *1.0f/mPhoto.getHeight());
+                    ageBitmap = Bitmap.createScaledBitmap(ageBitmap, (int)(ageWidth*ratio), (int)(ageHeight*ratio), false);
+                }
+
+                canvas.drawBitmap(ageBitmap, x - ageBitmap.getWidth() /2, y - h/2 - ageBitmap.getHeight(), null);
+
+                mPhotoImage = bitmap;
 
             }
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+    }
+
+
+
+    private Bitmap buildAgeBitmap(int age, boolean isMale) {
+
+        TextView tv = (TextView) mWating.findViewById((R.id.id_age_and_gender));
+        tv.setText(age + "");
+        if (isMale) {
+            tv.setCompoundDrawablesWithIntrinsicBounds(getResources().getDrawable(R.drawable.male), null, null, null);
+        } else {
+            tv.setCompoundDrawablesWithIntrinsicBounds(getResources().getDrawable(R.drawable.female), null, null, null);
+        }
+
+        tv.setDrawingCacheEnabled(true);
+        Bitmap bitmap = Bitmap.createBitmap(tv.getDrawingCache());
+        tv.destroyDrawingCache();
+        return bitmap;
+
 
     }
 
@@ -153,6 +184,14 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             case R.id.id_detect:
 
                 mWating.setVisibility(View.VISIBLE);
+
+                if(mCurrentPhotoStr != null && !mCurrentPhotoStr.trim().equals(""))
+                {
+                    resizePhoto();
+                }else{
+                    mPhotoImage = BitmapFactory.decodeResource(getResources(), R.drawable.t4);
+                }
+
                 FaceppDetect.detect(mPhotoImage, new FaceppDetect.Callback() {
 
                     @Override

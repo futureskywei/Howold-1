@@ -57,7 +57,18 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"/>
 
-       </FrameLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/id_age_and_gender"
+            android:drawableLeft="@drawable/male"
+            android:text="123"
+            android:background="@drawable/hint"
+            android:visibility="invisible"
+            android:textColor="#ffff00ff"
+            android:gravity="center"
+            />
 
+    </FrameLayout>
 
 </RelativeLayout>
