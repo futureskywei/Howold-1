@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
@@ -34,16 +36,17 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     private Bitmap mPhotoImage;
     private String mCurrentPhotoStr;
+    private  Paint mPaint;
 
 
-    @Override
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         initViews();
-
         InitEvents();
+        mPaint = new Paint();
 
     }
 
@@ -92,6 +95,10 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     private void prepareRsBitmap(JSONObject rs) {
 
+        Bitmap bitmap = Bitmap.createBitmap(mPhotoImage.getWidth(), mPhotoImage.getHeight(), mPhotoImage.getConfig());
+        Canvas canvas = new Canvas(bitmap);
+
+
         try {
             JSONArray  faces =  rs.getJSONArray("face");
             int faceCount = faces.length();
@@ -99,6 +106,31 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             for(int i=0; i<faceCount; i++){
                 //拿到单独的face对象
                 JSONObject face = faces.getJSONObject(i);
+                JSONObject posObj = face.getJSONObject("");
+
+                float  x = (float) posObj.getJSONObject("center").getDouble("x");
+                float  y = (float) posObj.getJSONObject("center").getDouble("y");
+
+                float  w = (float) posObj.getDouble("width");
+                float  h = (float) posObj.getDouble("height");
+
+                x = x /100 * bitmap.getWidth();
+                y = y /100 * bitmap.getHeight();
+
+                w = w/ 100 * bitmap.getWidth();
+                h = h/ 100 * bitmap.getHeight();
+
+                mPaint.setColor(0xffffffff);
+                mPaint.setStrokeWidth(3);
+
+                //画box
+                canvas.drawLine(x - w/2, y - h / 2, x - w/2, y + h /2, mPaint);
+                canvas.drawLine(x - w/2, y - h / 2, x + w/2, y - h /2, mPaint);
+                canvas.drawLine(x + w/2, y - h / 2, x + w/2, y + h /2, mPaint);
+                canvas.drawLine(x - w/2, y + h / 2, x + w/2, y + h /2, mPaint);
+
+
+
             }
 
         } catch (JSONException e) {
